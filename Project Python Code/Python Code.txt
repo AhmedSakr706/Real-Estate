@@ -1,0 +1,140 @@
+#Import Pandas
+import pandas as pd
+
+
+#Import excel file
+Nashville_Housing_Data = pd.read_excel(r"F:\Data Analysis\Portofolio\Real Estate Project\Nashville Housing Data.xlsx")
+
+Nashville_Housing_Data
+
+#Cleaning Data
+
+#Show duplicated data
+Nashville_Housing_Data[Nashville_Housing_Data.duplicated(subset=['ParcelID', 'SaleDate', 'LegalReference', 'PropertyAddress'], keep=False)]
+
+#Clean duplicated data
+Nashville_Housing_Data.drop_duplicates(subset=['ParcelID', 'SaleDate', 'LegalReference', 'PropertyAddress'], keep='first', inplace=True)
+
+Nashville_Housing_Data
+
+
+
+#Show number on NaN Values 
+Nashville_Housing_Data[['PropertyAddress','LandValue', 'BuildingValue', 'TotalValue', 'YearBuilt','Bedrooms','FullBath','HalfBath']].isnull().sum()
+
+
+
+#Cleaning NaN Values
+Cleaning_Nashville_Housing_Data = Nashville_Housing_Data.dropna(subset=['PropertyAddress', 'LandValue', 'BuildingValue', 'TotalValue', 'YearBuilt', 'Bedrooms', 'FullBath', 'HalfBath'])
+
+Cleaning_Nashville_Housing_Data
+
+
+
+
+
+#Checking for Outlier Values
+
+import matplotlib.pyplot as plt
+
+# Creating a box plot for the 'SalePrice' column
+plt.figure(figsize=(10, 6))
+plt.boxplot(Cleaning_Nashville_Housing_Data['SalePrice'], vert=False)
+plt.title('Box Plot of SalePrice')
+plt.xlabel('SalePrice')
+plt.show()
+
+
+
+
+
+# Calculate Q1 (25th percentile) and Q3 (75th percentile)
+Q1 = Cleaning_Nashville_Housing_Data['SalePrice'].quantile(0.25)
+Q3 = Cleaning_Nashville_Housing_Data['SalePrice'].quantile(0.75)
+
+# Calculate the Interquartile Range (IQR)
+IQR = Q3 - Q1
+
+# Determine the outliers
+outliers = Cleaning_Nashville_Housing_Data[(Cleaning_Nashville_Housing_Data['SalePrice'] < (Q1 - 1.5 * IQR)) | (Cleaning_Nashville_Housing_Data['SalePrice'] > (Q3 + 1.5 * IQR))]['SalePrice']
+
+# Summary of outlier information
+outliers_summary = {
+    'Q1': Q1,
+    'Q3': Q3,
+    'IQR': IQR,
+    'Lower Bound': Q1 - 1.5 * IQR,
+    'Upper Bound': Q3 + 1.5 * IQR,
+    'Number of Outliers': outliers.count(),
+    'Outliers': outliers.values
+}
+
+outliers_summary
+
+#Upper Bound outlier values
+Cleaning_Nashville_Housing_Data[Cleaning_Nashville_Housing_Data['SalePrice'] > Q3 + 1.5 * IQR].sort_values(by='SalePrice', ascending=False).head(20)
+
+
+
+
+#Lower Bound outlier values
+Cleaning_Nashville_Housing_Data[Cleaning_Nashville_Housing_Data['SalePrice'] < Q3 - 1.5 * IQR].sort_values(by='SalePrice').head(20)
+
+
+
+
+#make Column AgeAtSale
+Cleaning_Nashville_Housing_Data['AgeAtSale'] = Cleaning_Nashville_Housing_Data['SaleDate'].dt.year -Cleaning_Nashville_Housing_Data['YearBuilt'] 
+
+
+#Format Columns
+Cleaning_Nashville_Housing_Data['AgeAtSale'] = Cleaning_Nashville_Housing_Data['AgeAtSale'].astype(int)
+Cleaning_Nashville_Housing_Data['LandValue'] = Cleaning_Nashville_Housing_Data['LandValue'].astype(int)
+Cleaning_Nashville_Housing_Data['BuildingValue'] = Cleaning_Nashville_Housing_Data['BuildingValue'].astype(int)
+Cleaning_Nashville_Housing_Data['TotalValue'] = Cleaning_Nashville_Housing_Data['TotalValue'].astype(int)
+Cleaning_Nashville_Housing_Data['Bedrooms'] = Cleaning_Nashville_Housing_Data['Bedrooms'].astype(int)
+Cleaning_Nashville_Housing_Data['FullBath'] = Cleaning_Nashville_Housing_Data['FullBath'].astype(int)
+Cleaning_Nashville_Housing_Data['HalfBath'] = Cleaning_Nashville_Housing_Data['HalfBath'].astype(int)
+Cleaning_Nashville_Housing_Data['YearBuilt'] = Cleaning_Nashville_Housing_Data['YearBuilt'].astype(int)
+Cleaning_Nashville_Housing_Data
+
+
+#Format Address
+Cleaning_Nashville_Housing_Data['CityAddress'] = Cleaning_Nashville_Housing_Data['PropertyAddress'].str.split(',').str[1]
+Cleaning_Nashville_Housing_Data['CityAddress']
+
+Cleaning_Nashville_Housing_Data['NumberStreetAddress'] = Cleaning_Nashville_Housing_Data['PropertyAddress'].str.split(' ').str[0]
+Cleaning_Nashville_Housing_Data['NumberStreetAddress']
+
+Cleaning_Nashville_Housing_Data['StreetNameAddress']  = Cleaning_Nashville_Housing_Data['PropertyAddress'].str.extract(r'\d+\s+(.*?),')
+Cleaning_Nashville_Housing_Data['StreetNameAddress'].str.strip()
+
+
+
+#Data Analysis
+Cleaning_Nashville_Housing_Data['DiffSaleCost'] = Cleaning_Nashville_Housing_Data['SalePrice'] - Cleaning_Nashville_Housing_Data['TotalValue']
+
+#Calculate profit
+Cleaning_Nashville_Housing_Data['Profit'] = 0
+Cleaning_Nashville_Housing_Data.loc[Cleaning_Nashville_Housing_Data['DiffSaleCost'] > 0, 'Profit'] = Cleaning_Nashville_Housing_Data['DiffSaleCost']
+Cleaning_Nashville_Housing_Data['Profit']
+
+
+#Calculate Losses
+Cleaning_Nashville_Housing_Data['Losses'] = 0
+Cleaning_Nashville_Housing_Data.loc[Cleaning_Nashville_Housing_Data['DiffSaleCost'] < 0, 'Losses'] = Cleaning_Nashville_Housing_Data['DiffSaleCost']
+Cleaning_Nashville_Housing_Data['Losses']
+
+
+# Calculate 'annual_decrease_and_increase' with conditional division
+Cleaning_Nashville_Housing_Data['annual_decrease_and_increase'] = Cleaning_Nashville_Housing_Data.apply(
+    lambda row: ((row['DiffSaleCost'] / row['TotalValue']) * 100) if row['AgeAtSale'] == 0 else (((row['DiffSaleCost'] / row['TotalValue']) * 100) / row['AgeAtSale']),
+    axis=1)
+
+
+
+
+Cleaning_Nashville_Housing_Data['annual_decrease_and_increase'] = Cleaning_Nashville_Housing_Data['annual_decrease_and_increase']/100
+
+
+Cleaning_Nashville_Housing_Data.to_excel('final_analysis.xlsx',index=False)
